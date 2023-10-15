@@ -103,7 +103,7 @@ def main():
             current_ip = ip_echo()
 
             if zone_ip.strip() == current_ip.strip():
-                continue
+                break
             else:
                 logging.info(f"DNS Mistmatch detected:  A-record on gandi:{zone_ip} WAN IP:{current_ip} for A record: {record}")
                 change_zone_ip(config[section], record, current_ip)
