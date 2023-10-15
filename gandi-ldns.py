@@ -84,7 +84,6 @@ def ip_echo():
     try:
         ip_resolver = IpResolver(url='https://checkip.amazonaws.com', alt_url='https://monip.io')
         ip = ip_resolver.resolve_ip()
-        logging.info(f"WAN IP: {ip}")
     except IpResolverError as e:
         logging.error("%s - %s [ERROR]" % (today, str(e)), file=sys.stderr)
         raise RuntimeWarning("IP resolver returned an error: %s" % str(e))
@@ -106,10 +105,10 @@ def main():
             if zone_ip.strip() == current_ip.strip():
                 continue
             else:
-                logging.info(f"DNS Mistmatch detected:  A-record on gandi:{zone_ip} WAN IP:{current_ip}")
+                logging.info(f"DNS Mistmatch detected:  A-record on gandi:{zone_ip} WAN IP:{current_ip} for A record: {record}")
                 change_zone_ip(config[section], record, current_ip)
                 zone_ip = get_zone_ip(config[section],record)
-                logging.info(f"DNS A record update complete - set to: {zone_ip}")
+                logging.info(f"DNS A record update successful - set to: {zone_ip} for A record: {record}")
 
 
 if __name__ == "__main__":
