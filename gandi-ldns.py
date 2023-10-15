@@ -9,7 +9,8 @@ import socket
 import sys
 from urllib.parse import urljoin
 import logging
-
+from ip_resolver import IpResolver, IpResolverError
+from datetime import datetime
 
 logging.basicConfig(filename='info.log', filemode='w', format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
 
@@ -102,6 +103,17 @@ def read_config(config_path):
     cfg.read(config_path)
     return cfg
 
+def ip_echo():
+    today = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+    """Returns the current public IP address. Raises an exception if an issue occurs."""
+    try:
+        ip_resolver = IpResolver(url='https://checkip.amazonaws.com', alt_url='https://monip.io')
+        ip = ip_resolver.resolve_ip()
+        logging.info(f"WAN IP: {ip}")
+    except IpResolverError as e:
+        logging.error("%s - %s [ERROR]" % (today, str(e)), file=sys.stderr)
+        raise RuntimeWarning("IP resolver returned an error: %s" % str(e))
+    return ip
 
 def main():
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -112,7 +124,7 @@ def main():
 
     for section in config.sections():
         zone_ip = get_zone_ip(config[section])
-        current_ip = socket.gethostbyname(config.get(section, "host"))
+        current_ip = ip_echo()
 
         if zone_ip.strip() == current_ip.strip():
             continue
