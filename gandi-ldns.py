@@ -8,6 +8,11 @@ import os
 import socket
 import sys
 from urllib.parse import urljoin
+import logging
+
+
+logging.basicConfig(filename='info.log', filemode='w', format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
+
 
 # Third-party
 import requests
@@ -32,7 +37,8 @@ def get_zone_ip(section):
 
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=MAX_RETRIES))
-    resp = session.get(api_url, headers={"X-Api-Key": section["apikey"]})
+    apikey = section["apikey"]
+    resp = session.get(api_url, headers={"authorization": f"Bearer {apikey}"})
     resp.raise_for_status()
 
     current_zone = resp.json()
@@ -60,13 +66,13 @@ def get_ip():
         resp.raise_for_status()
         ip = resp.text
     except requests.exceptions.HTTPError:
-        print("Unable to fetch external IP address from ipify API.")
+        logging.info("Unable to fetch external IP address from ipify API.")
         sys.exit(2)
 
     try:
         ip = ipaddress.ip_address(ip)
     except ValueError:
-        print("Invalid external IP address returned by ipify API")
+        logging.info("Invalid external IP address returned by ipify API")
         sys.exit(2)
 
     return str(ip)
@@ -79,17 +85,12 @@ def change_zone_ip(section, new_ip):
     domain = section["domain"]
     apikey = section["apikey"]
 
-    endpoint = "domains/%s/records/%s/%s" % (domain, a_name, "A")
+    endpoint = "domains/%s/records/%s" % (domain, a_name)
     api_url = urljoin(section["api"], endpoint)
 
-    body = {
-        "rrset_ttl": section.getint("ttl"),
-        "rrset_values": [
-            new_ip,
-        ],
-    }
+    body = {"items":[{"rrset_type":"A","rrset_values":[new_ip]}]}
 
-    resp = requests.put(api_url, json=body, headers={"X-Api-Key": apikey})
+    resp = requests.put(api_url, json=body, headers={"authorization": f"Bearer {apikey}", 'content-type': 'application/json'})
     resp.raise_for_status()
 
 
@@ -112,21 +113,14 @@ def main():
     for section in config.sections():
         zone_ip = get_zone_ip(config[section])
         current_ip = socket.gethostbyname(config.get(section, "host"))
-        if current_ip == "127.0.0.1":
-            current_ip = get_ip()
 
         if zone_ip.strip() == current_ip.strip():
             continue
         else:
-            print(
-                "DNS Mistmatch detected:  A-record:",
-                zone_ip,
-                " WAN IP:",
-                current_ip,
-            )
+            logging.info(f"DNS Mistmatch detected:  A-record on gandi:{zone_ip} WAN IP:{current_ip}")
             change_zone_ip(config[section], current_ip)
             zone_ip = get_zone_ip(config[section])
-            print("DNS A record update complete - set to: ", zone_ip)
+            logging.info(f"DNS A record update complete - set to: {zone_ip}")
 
 
 if __name__ == "__main__":
