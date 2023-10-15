@@ -55,29 +55,6 @@ def get_zone_ip(section):
     return ip
 
 
-def get_ip():
-    """Get external IP"""
-
-    try:
-        # Could be any service that just gives us a simple raw
-        # ASCII IP address (not HTML etc)
-        session = requests.Session()
-        session.mount("https://", HTTPAdapter(max_retries=MAX_RETRIES))
-        resp = session.get("https://api.ipify.org")
-        resp.raise_for_status()
-        ip = resp.text
-    except requests.exceptions.HTTPError:
-        logging.info("Unable to fetch external IP address from ipify API.")
-        sys.exit(2)
-
-    try:
-        ip = ipaddress.ip_address(ip)
-    except ValueError:
-        logging.info("Invalid external IP address returned by ipify API")
-        sys.exit(2)
-
-    return str(ip)
-
 
 def change_zone_ip(section, new_ip):
     """Change the zone record to the new IP"""

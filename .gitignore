@@ -1,3 +1,4 @@
 config.txt
 info.log
 *.pyc
+.vscode/*
