@@ -12,7 +12,7 @@ import logging
 from ip_resolver import IpResolver, IpResolverError
 from datetime import datetime
 
-logging.basicConfig(filename='info.log', filemode='w', format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
+logging.basicConfig(filename='info.log', filemode='a', format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
 
 
 # Third-party
@@ -28,7 +28,7 @@ MAX_RETRIES = Retry(
 )
 
 
-def get_zone_ip(section):
+def get_zone_ip(section, record):
     """Get the current IP from the A record in the DNS zone"""
 
     endpoint = "domains/%s/records" % section["domain"]
@@ -43,23 +43,21 @@ def get_zone_ip(section):
     resp.raise_for_status()
 
     current_zone = resp.json()
-    name = section["a_name"]
 
     # There may be more than one A record - we're interested in one with
     # the specific name (typically @ but could be sub domain)
-    for record in current_zone:
-        if record["rrset_type"] == "A" and record["rrset_name"] == name:
-            ip = record["rrset_values"][0]
+    for rec in current_zone:
+        if rec["rrset_type"] == "A" and rec["rrset_name"] == record:
+            ip = rec["rrset_values"][0]
             break
 
     return ip
 
 
 
-def change_zone_ip(section, new_ip):
+def change_zone_ip(section, a_name, new_ip):
     """Change the zone record to the new IP"""
 
-    a_name = section["a_name"]
     domain = section["domain"]
     apikey = section["apikey"]
 
@@ -100,16 +98,18 @@ def main():
         sys.exit("please fill in the 'config.txt' file")
 
     for section in config.sections():
-        zone_ip = get_zone_ip(config[section])
-        current_ip = ip_echo()
+        gandi_records = config[section]["a_name"].split(',')
+        for record in gandi_records:
+            zone_ip = get_zone_ip(config[section],record)
+            current_ip = ip_echo()
 
-        if zone_ip.strip() == current_ip.strip():
-            continue
-        else:
-            logging.info(f"DNS Mistmatch detected:  A-record on gandi:{zone_ip} WAN IP:{current_ip}")
-            change_zone_ip(config[section], current_ip)
-            zone_ip = get_zone_ip(config[section])
-            logging.info(f"DNS A record update complete - set to: {zone_ip}")
+            if zone_ip.strip() == current_ip.strip():
+                continue
+            else:
+                logging.info(f"DNS Mistmatch detected:  A-record on gandi:{zone_ip} WAN IP:{current_ip}")
+                change_zone_ip(config[section], record, current_ip)
+                zone_ip = get_zone_ip(config[section],record)
+                logging.info(f"DNS A record update complete - set to: {zone_ip}")
 
 
 if __name__ == "__main__":
